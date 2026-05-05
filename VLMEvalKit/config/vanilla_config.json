@@ -1,0 +1,15 @@
+{
+  "model": {
+    "Monet_vanilla": {
+      "class": "Qwen2VLChat",
+      "model_path": "PATH_TO_BASELINE_CHECKPOINT"
+    }
+  },
+  "data": {
+    "MME-RealWorld-Lite": {
+    "class": "ImageMCQDataset",
+    "dataset": "MME-RealWorld-Lite"
+    }
+    }
+
+}

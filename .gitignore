@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+
+data/
+outputs/
+outputs_*/
+checkpoints/
+wandb/
+
+*.log
+*.tmp
+*.pdf
