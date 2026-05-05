@@ -1,0 +1,29 @@
+{
+  "model": {
+    "UniVLR_Stage1_B_lambda0.3": {
+      "class": "Qwen2VLChatUniVLR",
+      "model_path": "PATH_TO_UNIVLR_STAGE1_CHECKPOINT",
+      "decoding_strategy": "univlr",
+      "univlr_steps": 1,
+      "clean_univlr_output": true
+    }
+  },
+  "data": {
+    "VStarBench": {
+      "class": "ImageMCQDataset",
+      "dataset": "VStarBench"
+    },
+    "HRBench4K": {
+      "class": "HRBenchDataset",
+      "dataset": "HRBench4K"
+    },
+    "HRBench8K": {
+      "class": "HRBenchDataset",
+      "dataset": "HRBench8K"
+    },
+    "MME-RealWorld-Lite": {
+      "class": "MMERealWorld",
+      "dataset": "MME-RealWorld-Lite"
+    }
+  }
+}
