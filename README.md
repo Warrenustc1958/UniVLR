@@ -1,26 +1,79 @@
-# UniVLR
+<div align="center">
 
-Official anonymous implementation of **UniVLR: Unifying Text and Vision in Visual Latent Reasoning for Multimodal LLMs**.
+# 					UniVLR 🧠👁️
 
-UniVLR is a visual latent reasoning framework for multimodal large language models. Instead of interleaving explicit text chain-of-thought with visual latent tokens, UniVLR renders textual reasoning traces and auxiliary visual evidence into a shared visual canvas, compresses that canvas into compact visual latent tokens, and performs inference through the latent channel before decoding only the final answer.
+###   Unifying Text and Vision in Visual Latent Reasoning for Multimodal LLMs
 
-## Highlights
+​				[![arXiv](https://img.shields.io/badge/arXiv-2605.11856-b31b1b.svg)](https://arxiv.org/abs/2605.11856)[![ModelScope Stage1](https://img.shields.io/badge/ModelScope-UniVLR--Stage--1--7B-orange.svg)](https://www.modelscope.cn/models/Warrenustc1958/UniVLR-Stage1-7B)[![ModelScope Stage2](https://img.shields.io/badge/ModelScope-UniVLR--Stage--2--7B-blue.svg)](https://www.modelscope.cn/models/Warrenustc1958/UniVLR-Stage2-7B)[![Backbone](https://img.shields.io/badge/Backbone-Qwen2.5--VL--7B-yellow.svg)](https://github.com/QwenLM/Qwen2.5-VL)[![Evaluation](https://img.shields.io/badge/Eval-VLMEvalKit-pink.svg)](https://github.com/open-compass/VLMEvalKit)
 
-- **Unified visual workspace.** Textual reasoning steps and auxiliary visual evidence are represented on the same rendered canvas, then encoded by the base MLLM vision encoder.
-- **Two-stage latent alignment.** Stage I grounds the model in visual latent reasoning with auxiliary visual targets. Stage II aligns the latent channel to unified text-vision canvas targets.
-- **Compact inference.** During evaluation, UniVLR uses a small latent token budget and does not generate verbose intermediate text reasoning.
-- **Qwen2.5-VL backbone.** The released code instantiates UniVLR on top of Qwen2.5-VL and freezes the vision tower and patch merger by default.
-- **VLMEvalKit support.** The repository includes a customized VLMEvalKit wrapper for UniVLR decoding and benchmark evaluation.
+**Official implementation of [UniVLR: Unifying Text and Vision in Visual Latent Reasoning for Multimodal LLMs](https://arxiv.org/abs/2605.11856).**
 
-## Method Overview
+UniVLR turns multimodal reasoning into a compact **visual latent workspace**: text reasoning traces and auxiliary visual evidence are rendered onto a shared canvas, compressed by the frozen vision encoder, and used as latent supervision for MLLM inference.
 
-UniVLR uses four special tokens to control latent reasoning:
+</div>
+
+<p align="center">
+  <a href="#-news">News</a> •
+  <a href="#-model-zoo">Model Zoo</a> •
+  <a href="#-method-overview">Method</a> •
+  <a href="#-results">Results</a> •
+  <a href="#-training">Training</a> •
+  <a href="#-evaluation">Evaluation</a> •
+  <a href="#-citation">Citation</a>
+</p>
+
+---
+
+## 🔥 News
+
+- **2026.06.10 Released checkpoints:** [UniVLR-Stage1-7B](https://www.modelscope.cn/models/Warrenustc1958/UniVLR-Stage1-7B) and [UniVLR-Stage2-7B](https://www.modelscope.cn/models/Warrenustc1958/UniVLR-Stage2-7B) are available on ModelScope.
+- **2026.05.12 Paper online:** the UniVLR paper is available on [arXiv](https://arxiv.org/abs/2605.11856).
+
+## ✨ Highlights
+
+- **Unified visual workspace.** Textual reasoning steps and auxiliary visual evidence are rendered into the same canvas and encoded by the base MLLM vision encoder.
+- **Two-stage latent alignment.** Stage I grounds visual latent reasoning with auxiliary visual targets; Stage II aligns the latent channel to unified text-vision canvas targets.
+- **Compact inference.** UniVLR reasons through a small latent token budget and decodes only the final answer, avoiding verbose intermediate text CoT at evaluation time.
+- **Qwen2.5-VL backbone.** The released implementation builds on Qwen2.5-VL and freezes the vision tower and patch merger by default.
+- **VLMEvalKit-ready.** The repository includes a customized VLMEvalKit wrapper for UniVLR decoding and benchmark evaluation.
+
+## 📦 Model Zoo
+
+| Checkpoint | Stage | Recommended Use | Link |
+| --- | --- | --- | --- |
+| **UniVLR-Stage1-7B** | Visual latent grounding | Warm-up checkpoint, ablations, continued alignment | [ModelScope](https://www.modelscope.cn/models/Warrenustc1958/UniVLR-Stage1-7B) |
+| **UniVLR-Stage2-7B** | Text-vision unified alignment | Main checkpoint for evaluation and downstream use | [ModelScope](https://www.modelscope.cn/models/Warrenustc1958/UniVLR-Stage2-7B) |
+
+Download with the ModelScope SDK:
+
+```bash
+pip install modelscope
+```
+
+```python
+from modelscope import snapshot_download
+
+snapshot_download(
+    "Warrenustc1958/UniVLR-Stage2-7B",
+    cache_dir="checkpoints",
+)
+```
+
+Then point evaluation to the downloaded checkpoint:
+
+```bash
+export MODEL_PATH=/path/to/checkpoints/UniVLR-Stage2-7B
+```
+
+## 🧩 Method Overview
+
+UniVLR uses special tokens to control the latent reasoning span:
 
 ```text
 <|univlr_start|> <|univlr|> ... <|univlr|> <|univlr_end|> <|univlr_latent_end|>
 ```
 
-The training sequence follows:
+The training sequence is:
 
 ```text
 Input multimodal prompt
@@ -31,15 +84,13 @@ K visual latent tokens
 Final answer
 ```
 
-The latent targets are extracted from rendered visual canvases using the frozen vision encoder of the base MLLM. UniVLR then trains a lightweight projection head to align decoder hidden states with these visual targets using a normalized regression objective combined with the standard language modeling loss.
+At training time, latent targets are extracted from rendered visual canvases with the frozen vision encoder of the base MLLM. UniVLR trains a lightweight projection head to align decoder hidden states with these visual targets using a normalized regression objective together with the standard language modeling loss.
 
 The paper uses `K_train=24` latent targets during training and `K_infer=12` latent steps for the main inference setting. The scripts expose these values through `IMAGE_LATENT_TOKENS` and `UNIVLR_STEPS`.
 
-## Results From The Paper
+## 📊 Results
 
-The paper evaluates UniVLR on perception-centric and visual reasoning benchmarks including V*, HRBench4K, HRBench8K, and MME-RealWorld-Lite. With Qwen2.5-VL-7B-Instruct as the backbone, UniVLR improves average accuracy over representative visual latent reasoning baselines while using substantially fewer generated reasoning tokens.
-
-Reported main comparison:
+UniVLR is evaluated on perception-centric and visual reasoning benchmarks, including V*, HRBench4K, HRBench8K, and MME-RealWorld-Lite. With Qwen2.5-VL-7B-Instruct as the backbone, UniVLR improves average accuracy over representative visual latent reasoning baselines while using substantially fewer generated reasoning tokens.
 
 | Model | V* | HRBench4K | HRBench8K | MME-RealWorld-Lite |
 | --- | ---: | ---: | ---: | ---: |
@@ -47,11 +98,11 @@ Reported main comparison:
 | Monet | 79.1 | 71.9 | 63.5 | 46.9 |
 | SkiLa | 80.1 | 70.3 | 62.9 | 45.6 |
 | CoVT | 78.0 | 71.9 | 69.7 | 48.2 |
-| UniVLR | 82.7 | 73.3 | 68.8 | 50.7 |
+| **UniVLR** | **82.7** | **73.3** | **68.8** | **50.7** |
 
-In the paper, UniVLR performs inference with 12 latent reasoning tokens and no generated intermediate text CoT, while interleaved visual latent reasoning baselines typically generate hundreds of reasoning tokens per instance.
+During inference, UniVLR uses 12 latent reasoning tokens and does not generate intermediate text CoT, while interleaved visual latent reasoning baselines typically generate hundreds of reasoning tokens per instance.
 
-## Repository Structure
+## 🗂️ Repository Structure
 
 ```text
 UniVLR/
@@ -79,12 +130,14 @@ Key files:
 - `scripts/univlr_stage2_sft.sh`: Stage-II text-vision unified alignment.
 - `VLMEvalKit/univlr_eval/eval_univlr.sh`: UniVLR evaluation entry.
 
-## Installation
+## ⚙️ Installation
 
 Create a Python environment and install dependencies:
 
 ```bash
+git clone https://github.com/Warrenustc1958/UniVLR.git
 cd UniVLR
+
 conda create -n univlr python=3.12 -y
 conda activate univlr
 pip install -r requirements.txt
@@ -99,7 +152,7 @@ cd UniVLR/VLMEvalKit
 pip install -r requirements.txt
 ```
 
-## Data Preparation
+## 🧱 Data Preparation
 
 UniVLR expects Monet/Zebra-style JSON or JSONL manifests with image paths and latent target paths. The release does not hard-code local data paths. Set paths from the shell:
 
@@ -130,7 +183,7 @@ Offline latent target manifests are expected in folders such as:
 <subset>/qwen2_5_vl_latent_targets_24token_2dpool/train_offline_k24.json
 ```
 
-## Training
+## 🚀 Training
 
 ### Stage I: Visual Latent Grounding
 
@@ -186,16 +239,16 @@ The Stage-II script builds a mixed manifest if `DATA_PATH` is not provided. To o
 BUILD_DATASET_ONLY=True bash scripts/univlr_stage2_sft.sh
 ```
 
-## Evaluation
+## 🔍 Evaluation
 
-Edit `VLMEvalKit/config/univlr_stage1_config.json` or provide `MODEL_PATH` directly from the shell:
+Edit `VLMEvalKit/config/univlr_stage1_config.json` or provide `MODEL_PATH` directly from the shell. For the released Stage-II checkpoint:
 
 ```bash
 cd UniVLR/VLMEvalKit
 
 export LMUData=/path/to/VLMEvalKit/data
-export MODEL_PATH=/path/to/univlr/checkpoint
-export MODEL_ALIAS=UniVLR
+export MODEL_PATH=/path/to/UniVLR-Stage2-7B
+export MODEL_ALIAS=UniVLR-Stage2-7B
 export DECODING_STRATEGY=univlr
 export UNIVLR_STEPS=12
 
@@ -214,9 +267,9 @@ For a dry run that only prints the generated command and effective config:
 DRY_RUN=1 bash univlr_eval/eval_univlr.sh
 ```
 
-For API-based judging in VLMEvalKit, configure your own credentials before running evaluation. The anonymous release does not include private API keys.
+For API-based judging in VLMEvalKit, configure your own credentials before running evaluation. This repository does not include private API keys.
 
-## Notes On Inference
+## 🧠 Notes on Inference
 
 During UniVLR inference, the model enters latent mode after `<|univlr_start|>`, recursively feeds predicted continuous latent embeddings for `UNIVLR_STEPS`, then exits latent mode and decodes the final answer. The evaluation wrapper can strip internal latent markers with:
 
@@ -226,9 +279,21 @@ export CLEAN_UNIVLR_OUTPUT=true
 
 This keeps benchmark outputs focused on the natural-language answer.
 
+## 🙏 Acknowledgements
 
-## Acknowledgements
-
-We thank the open-source projects and communities that made this work possible, including [Qwen3-VL](https://github.com/QwenLM/Qwen3-VL), [VLMEvalKit](https://github.com/open-compass/VLMEvalKit), [LVR](https://github.com/VincentLeebang/lvr/), and [Monet](https://github.com/NOVAglow646/Monet).
+We thank the open-source projects and communities that made this work possible, including [Qwen2.5-VL](https://github.com/QwenLM/Qwen2.5-VL), [VLMEvalKit](https://github.com/open-compass/VLMEvalKit), [LVR](https://github.com/VincentLeebang/lvr/), and [Monet](https://github.com/NOVAglow646/Monet).
 
 Please follow the licenses and terms of the corresponding upstream models, datasets, and evaluation tools.
+
+## 📚 Citation
+
+If you find UniVLR useful, please consider citing our paper:
+
+```bibtex
+@article{jiang2026univlr,
+  title={UniVLR: Unifying Text and Vision in Visual Latent Reasoning for Multimodal LLMs},
+  author={Jiang, Houcheng and Fu, Jiajun and Fang, Junfeng and Gao, Chen and Wang, Xiang and He, Xiangnan and Li, Yong},
+  journal={arXiv preprint arXiv:2605.11856},
+  year={2026}
+}
+```
