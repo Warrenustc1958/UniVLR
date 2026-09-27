@@ -297,3 +297,5 @@ If you find UniVLR useful, please consider citing our paper:
   year={2026}
 }
 ```
+目前我们已经中稿NeurIPS 2026 Accept(poster)请你更新我们这个仓库的readme
+
