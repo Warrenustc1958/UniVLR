@@ -12,3 +12,4 @@ wandb/
 *.log
 *.tmp
 *.pdf
+VLMEvalKit/.env

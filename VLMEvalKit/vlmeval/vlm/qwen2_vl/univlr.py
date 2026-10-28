@@ -83,6 +83,11 @@ def _decode_univlr_output(
             if in_univlr_span and fixed_univlr_steps is not None and univlr_span_count >= fixed_univlr_steps:
                 close_univlr_span()
             continue
+        if in_univlr_span and fixed_univlr_steps is not None and univlr_span_count < fixed_univlr_steps:
+            # fixed-step latent slot: the appended id is only a placeholder (often END), count it as a latent
+            rendered_ids.append(config.univlr_id)
+            univlr_span_count += 1
+            continue
         if token_id == config.univlr_end_id:
             in_univlr_span = False
             if not rendered_ids or rendered_ids[-1] != config.univlr_end_id:
@@ -168,7 +173,7 @@ class Qwen2VLChatUniVLR(Qwen2VLPromptMixin, BaseModel):
 
         _ensure_univlr_root()
         from src.model.qwen_univlr_model import QwenWithUniVLR
-        from src.train.monkey_patch_forward_univlr import replace_qwen2_5_with_mixed_modality_forward_univlr
+        from src.train.monkey_patch_forward_univlr_inference import replace_qwen2_5_with_mixed_modality_forward_univlr
 
         if not os.path.exists(model_path):
             cache_path = get_cache_path(model_path, repo_type='models')
